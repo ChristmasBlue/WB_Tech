@@ -281,13 +281,17 @@ func (r *OrderDB) getItemsUID(uid string) ([]models.Item, error) {
 	return items, nil
 }
 
-func (r *OrderDB) GetUIDPerTime(time int) ([]string, error) {
+func (r *OrderDB) GetUIDs() ([]string, error) {
 	query := `SELECT order_uid FROM orders;`
-	rows, err := r.db.Query(query, time)
+	rows, err := r.db.Query(query)
 	if err != nil {
 		return nil, fmt.Errorf("error querying order UIDs: %v", err)
 	}
 	defer rows.Close()
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating rows: %w", err)
+	}
 
 	var orderUIDs []string
 	for rows.Next() {
@@ -299,12 +303,8 @@ func (r *OrderDB) GetUIDPerTime(time int) ([]string, error) {
 		orderUIDs = append(orderUIDs, orderUID)
 	}
 
-	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating rows: %w", err)
-	}
-
 	if len(orderUIDs) == 0 {
-		log.Printf("No entries found for the last %d hours", time)
+		log.Println("No records in db")
 		return nil, nil
 	}
 

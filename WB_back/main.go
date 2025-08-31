@@ -69,9 +69,9 @@ func main() {
 	cache := cache.NewCaсhe()
 
 	//заполняем кэш данными из БД за последнее время TimeLastRec
-	lastOrders, err := orderDb.GetUIDPerTime(TimeLastRec)
-	if err != nil && lastOrders != nil {
-		for _, orderUID := range lastOrders {
+	OrdersUIDs, err := orderDb.GetUIDs()
+	if err != nil && OrdersUIDs != nil {
+		for _, orderUID := range OrdersUIDs {
 			order, err := orderDb.GetOrderUID(orderUID)
 			if err != nil {
 				log.Printf("Error get order by uid: %v", err)
