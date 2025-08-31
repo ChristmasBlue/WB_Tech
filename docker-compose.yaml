@@ -1,0 +1,58 @@
+version: '3.8'
+
+services:
+  wb_front:
+    build:
+      context: ./WB_front
+      dockerfile: Dockerfile
+    container_name: wb_front_service
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+    ports:
+      - "8080:8080"
+    networks:
+      - app-net
+
+  wb_back:
+    build:
+      context: ./WB_back
+      dockerfile: Dockerfile
+    container_name: wb_back_service
+    environment:
+      - KAFKA_BROKERS=kafka:9092
+      - DB_CONNECTION_STRING=postgres://demo_user:1124@host.docker.internal:5432/demo_db?sslmode=disable
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - app-net
+
+  kafka:
+    image: apache/kafka:4.0.0
+    container_name: kafka_kraft
+    hostname: kafka
+    user: "root"
+    ports: 
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LOG_DIRS: /tmp/kafka-data
+      CLUSTER_ID: AD8DB9B39C6E4D99BE75915
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka_data:/tmp/kafka-data
+    networks:
+      - app-net
+    
+volumes:
+  kafka_data:
+
+networks:
+  app-net:
+    driver: bridge

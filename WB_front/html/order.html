@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{if .OrderUID}}Order {{.OrderUID}}{{else}}Order Not Found{{end}}</title>
+</head>
+<body>
+    <button onclick="window.history.back()">Back</button>
+    
+    {{if .OrderUID}}
+        <!-- Если заказ найден -->
+        <div class="success-message">
+            <h2>Заказ найден</h2>
+        </div>
+        
+        <h1>Order Details</h1>
+        
+        <!-- Основная информация о заказе -->
+        <div class="section">
+            <h2>Order</h2>
+            <div class="field"><strong>Order UID:</strong> {{.OrderUID}}</div>
+            <div class="field"><strong>Track Number:</strong> {{.TrackNumber}}</div>
+            <div class="field"><strong>Entry:</strong> {{.Entry}}</div>
+            <div class="field"><strong>Locale:</strong> {{.Locale}}</div>
+            <div class="field"><strong>Internal Signature:</strong> {{.InternalSignature}}</div>
+            <div class="field"><strong>Customer ID:</strong> {{.CustomerID}}</div>
+            <div class="field"><strong>Delivery Service:</strong> {{.DeliveryService}}</div>
+            <div class="field"><strong>Shard Key:</strong> {{.ShardKey}}</div>
+            <div class="field"><strong>SM ID:</strong> {{.SmID}}</div>
+            <div class="field"><strong>Date Created:</strong> {{.DateCreated}}</div>
+            <div class="field"><strong>OOF Shard:</strong> {{.OofShard}}</div>
+        </div>
+
+        <!-- Информация о доставке -->
+        <div class="section">
+            <h2>Delivery</h2>
+            <div class="field"><strong>Name:</strong> {{.Delivery.Name}}</div>
+            <div class="field"><strong>Phone:</strong> {{.Delivery.Phone}}</div>
+            <div class="field"><strong>Zip:</strong> {{.Delivery.Zip}}</div>
+            <div class="field"><strong>City:</strong> {{.Delivery.City}}</div>
+            <div class="field"><strong>Address:</strong> {{.Delivery.Address}}</div>
+            <div class="field"><strong>Region:</strong> {{.Delivery.Region}}</div>
+            <div class="field"><strong>Email:</strong> {{.Delivery.Email}}</div>
+        </div>
+
+        <!-- Информация об оплате -->
+        <div class="section">
+            <h2>Payment</h2>
+            <div class="field"><strong>Transaction:</strong> {{.Payment.Transaction}}</div>
+            <div class="field"><strong>Request ID:</strong> {{.Payment.RequestID}}</div>
+            <div class="field"><strong>Currency:</strong> {{.Payment.Currency}}</div>
+            <div class="field"><strong>Provider:</strong> {{.Payment.Provider}}</div>
+            <div class="field"><strong>Amount:</strong> {{.Payment.Amount}}</div>
+            <div class="field"><strong>Payment Date:</strong> {{.Payment.PaymentDt}}</div>
+            <div class="field"><strong>Bank:</strong> {{.Payment.Bank}}</div>
+            <div class="field"><strong>Delivery Cost:</strong> {{.Payment.DeliveryCost}}</div>
+            <div class="field"><strong>Goods Total:</strong> {{.Payment.GoodsTotal}}</div>
+            <div class="field"><strong>Custom Fee:</strong> {{.Payment.CustomFee}}</div>
+        </div>
+
+        <!-- Список товаров -->
+        <div class="section">
+            <h2>Items ({{len .Items}})</h2>
+            {{range .Items}}
+            <div class="item">
+                <div class="field"><strong>Name:</strong> {{.Name}}</div>
+                <div class="field"><strong>Brand:</strong> {{.Brand}}</div>
+                <div class="field"><strong>Track Number:</strong> {{.TrackNumber}}</div>
+                <div class="field"><strong>Price:</strong> {{.Price}}</div>
+                <div class="field"><strong>Sale:</strong> {{.Sale}}</div>
+                <div class="field"><strong>Total Price:</strong> {{.TotalPrice}}</div>
+                <div class="field"><strong>Size:</strong> {{.Size}}</div>
+                <div class="field"><strong>RID:</strong> {{.Rid}}</div>
+                <div class="field"><strong>Chrt ID:</strong> {{.ChrtID}}</div>
+                <div class="field"><strong>NM ID:</strong> {{.NmID}}</div>
+                <div class="field"><strong>Status:</strong> {{.Status}}</div>
+            </div>
+            {{end}}
+        </div>
+
+    {{else}}
+        <!-- Если заказ не найден -->
+        <div class="error-message">
+            <h2>Не удалось найти заказ</h2>
+            <p>Пожалуйста, проверьте правильность идентификатора заказа</p>
+        </div>
+    {{end}}
+</body>
+</html>
