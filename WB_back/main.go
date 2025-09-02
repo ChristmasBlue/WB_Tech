@@ -18,9 +18,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
-// const ConnStr string = "host=localhost user=demo_user password=1124 dbname=demo_db sslmode=disable port=5432"
 const (
-	//brokers    = "localhost:9092"
 	groupIDGet = "get-consumer-group"
 	groupIDAdd = "add-consumer-group"
 	topic      = "orders"
@@ -28,7 +26,6 @@ const (
 	AddOrder   = "Add"  // ключ для получения данных которые добавить в БД
 	SendOrder  = "Send" // ключ для отправки обработанных данных на основе UID
 )
-const TimeLastRec = 5
 
 func main() {
 	ConnStr := os.Getenv("DB_CONNECTION_STRING")
