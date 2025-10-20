@@ -1,6 +1,6 @@
 WB_Tech
 
-Видео работы сервиса: https://disk.yandex.ru/i/65BElWPlZJLJDg
+Видео работы сервиса: https://disk.yandex.ru/i/3D_bP5klF8ezfQ
 
 
 Сервис позволяет получать данные по уникальному идентификатору.
