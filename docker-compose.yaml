@@ -1,30 +1,43 @@
 version: '3.8'
 
 services:
-  wb_front:
-    build:
-      context: ./WB_front
-      dockerfile: Dockerfile
-    container_name: wb_front_service
-    environment:
-      - KAFKA_BROKERS=kafka:9092
-    ports:
-      - "8080:8080"
-    networks:
-      - app-net
-
   wb_back:
     build:
       context: ./WB_back
       dockerfile: Dockerfile
     container_name: wb_back_service
+    env_file:
+      - .env
     environment:
-      - KAFKA_BROKERS=kafka:9092
-      - DB_CONNECTION_STRING=postgres://demo_user:1124@host.docker.internal:5432/demo_db?sslmode=disable
+      # Application
+      - SERVER_ADDRESS=${SERVER_ADDRESS}
+      
+      # Kafka
+      - KAFKA_BROKERS=${KAFKA_BROKERS}
+      - KAFKA_TOPIC=${KAFKA_TOPIC}
+      - KAFKA_GROUP_ID_GET=${KAFKA_GROUP_ID_GET}
+      - KAFKA_GROUP_ID_ADD=${KAFKA_GROUP_ID_ADD}
+      - KAFKA_KEY_GET_ORDER=${KAFKA_KEY_GET_ORDER}
+      - KAFKA_KEY_ADD_ORDER=${KAFKA_KEY_ADD_ORDER}
+      - KAFKA_KEY_SEND_ORDER=${KAFKA_KEY_SEND_ORDER}
+      
+      # Database
+      - DB_TYPE=${DB_TYPE}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DB_SSL_MODE=${DB_SSL_MODE}
+      
     extra_hosts:
       - "host.docker.internal:host-gateway"
+    ports:
+      - "8080:8080"  # Добавляем проброс порта
     networks:
       - app-net
+    depends_on:
+      - kafka
 
   kafka:
     image: apache/kafka:4.0.0
@@ -35,16 +48,16 @@ services:
       - "9092:9092"
       - "9093:9093"
     environment:
-      KAFKA_NODE_ID: 1
-      KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
-      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
-      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
-      KAFKA_LOG_DIRS: /tmp/kafka-data
-      CLUSTER_ID: AD8DB9B39C6E4D99BE75915
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      - KAFKA_NODE_ID=${KAFKA_NODE_ID}
+      - KAFKA_PROCESS_ROLES=${KAFKA_PROCESS_ROLES}
+      - KAFKA_LISTENERS=${KAFKA_LISTENERS}
+      - KAFKA_ADVERTISED_LISTENERS=${KAFKA_ADVERTISED_LISTENERS}
+      - KAFKA_LISTENER_SECURITY_PROTOCOL_MAP=${KAFKA_LISTENER_SECURITY_PROTOCOL_MAP}
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=${KAFKA_CONTROLLER_QUORUM_VOTERS}
+      - KAFKA_CONTROLLER_LISTENER_NAMES=${KAFKA_CONTROLLER_LISTENER_NAMES}
+      - KAFKA_LOG_DIRS=${KAFKA_LOG_DIRS}
+      - CLUSTER_ID=${CLUSTER_ID}
+      - KAFKA_AUTO_CREATE_TOPICS_ENABLE=${KAFKA_AUTO_CREATE_TOPICS_ENABLE}
     volumes:
       - kafka_data:/tmp/kafka-data
     networks:

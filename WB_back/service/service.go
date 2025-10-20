@@ -18,37 +18,58 @@ func NewOrderDB(db *sql.DB) *OrderDB {
 
 // AddDB получает данные из объекта Order добавляет в БД и в случае уже существования данных, обновляет их
 func (r *OrderDB) AddDB(order *models.Order) error {
-	tx, err := r.db.Begin()
-	if err != nil {
+	//Валидируем данные перед сохранением в БД
+	if err := order.Validate(); err != nil {
+		log.Printf("Validation failed for order %s: %v", order.OrderUID, err)
 		return err
 	}
-	defer func() {
-		if err != nil {
-			tx.Rollback()
-			return
-		}
-		err = tx.Commit()
-	}()
+
+	//проверка на существованиеэ
+	if err := r.validateDiubleOrder(order); err != nil {
+		return err
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		log.Printf("Error begining transaction, order uid: %s: %v.\n", order.OrderUID, err)
+		return err
+	}
 
 	err = r.insertOrder(tx, order)
 	if err != nil {
+		tx.Rollback()
+		log.Printf("Error inserting oreder id BD, uid: %s: %v.\n", order.OrderUID, err)
 		return err
 	}
 
 	err = r.insertDelivery(tx, order)
 	if err != nil {
+		tx.Rollback()
+		log.Printf("Error insert Delivery id BD, uid: %s: %v.\n", order.OrderUID, err)
 		return err
 	}
 
 	err = r.insertPayment(tx, order)
 	if err != nil {
+		tx.Rollback()
+		log.Printf("Error insert payment id BD, uid: %s: %v.\n", order.OrderUID, err)
 		return err
 	}
 
 	err = r.insertItems(tx, order)
 	if err != nil {
+		tx.Rollback()
+		log.Printf("Error insert items id BD, uid: %s: %v.\n", order.OrderUID, err)
 		return err
 	}
+
+	// Если все операции успешны - коммитим
+	if err := tx.Commit(); err != nil {
+		log.Printf("Error committing transaction, order uid: %s: %v", order.OrderUID, err)
+		return err
+	}
+
+	log.Printf("Successfully added/updated order in DB, uid: %s", order.OrderUID)
 	return nil
 }
 
@@ -309,4 +330,22 @@ func (r *OrderDB) GetUIDs() ([]string, error) {
 	}
 
 	return orderUIDs, nil
+}
+
+func (r *OrderDB) validateDiubleOrder(order *models.Order) error {
+	var exists bool
+	query := "SELECT EXISTS(SELECT 1 FROM orders WHERE order_uid = $1)"
+	err := r.db.QueryRow(query, order.OrderUID).Scan(&exists)
+	if err != nil {
+		log.Printf("Error executed  query, order_uid: %s\n ", order.OrderUID)
+		return err
+	}
+	if exists {
+		log.Printf("Order was created earlier ")
+		return models.ValidationError{
+			Field:   "order_uid",
+			Message: "Order already exists",
+		}
+	}
+	return nil
 }

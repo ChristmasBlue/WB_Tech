@@ -10,6 +10,7 @@ import (
 	"sync"
 	"syscall"
 	"test_WB/cache"
+	"test_WB/config"
 	"test_WB/consumer"
 	"test_WB/parser"
 	"test_WB/producer"
@@ -18,29 +19,27 @@ import (
 	_ "github.com/lib/pq"
 )
 
-const (
-	groupIDGet = "get-consumer-group"
-	groupIDAdd = "add-consumer-group"
-	topic      = "orders"
-	GetOrder   = "Get"  // ключ для получения UID по которому нужно произвести обработку
-	AddOrder   = "Add"  // ключ для получения данных которые добавить в БД
-	SendOrder  = "Send" // ключ для отправки обработанных данных на основе UID
-)
-
 func main() {
-	ConnStr := os.Getenv("DB_CONNECTION_STRING")
+	//GetAddiction подлкючение переменных окружения
+	configYaml := config.Load()
+
+	ConnStr := "host=" + configYaml.DbHost + " user=" + configYaml.DbUser + " password=" + configYaml.DbPassword + " dbname=" + configYaml.DbName + " sslmode=" + configYaml.DbSslmode + " port=" + configYaml.DbPort
 	if ConnStr == "" {
-		ConnStr = "host=localhost user=demo_user password=1124 dbname=demo_db sslmode=disable port=5432"
+		log.Println("Error parameters DB empty.")
+		return
 	}
-	brokers := os.Getenv("KAFKA_BROKERS")
+
+	brokers := configYaml.BrokersAddress
 	if brokers == "" {
-		brokers = "localhost:9092" // значение по умолчанию для локальной разработки
+		log.Println("Error parameter brokers empty.")
+		return
 	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-	db, err := sql.Open("postgres", ConnStr)
+	db, err := sql.Open(configYaml.DbType, ConnStr)
 	if err != nil {
 		log.Printf("Error connect to DB: %v", err)
 		return
@@ -59,11 +58,11 @@ func main() {
 	orderDb := service.NewOrderDB(db)
 	chanAddOrder := make(chan *bytes.Buffer, 10)
 	chanGetOrder := make(chan string, 10)
-	consumer.StartOrderAddConsumer(ctx, []string{brokers}, topic, AddOrder, groupIDAdd, chanAddOrder)
-	consumer.StartOrderGetConsumer(ctx, []string{brokers}, topic, GetOrder, groupIDGet, chanGetOrder)
-	prod := producer.NewProducer([]string{brokers}, topic)
+	consumer.StartOrderAddConsumer(ctx, []string{brokers}, configYaml.Topic, configYaml.KeyAddOrder, configYaml.GroupIdAdd, chanAddOrder)
+	consumer.StartOrderGetConsumer(ctx, []string{brokers}, configYaml.Topic, configYaml.KeyGetOrder, configYaml.GroupIdGet, chanGetOrder)
+	prod := producer.NewProducer([]string{brokers}, configYaml.Topic)
 	defer prod.Close()
-	cache := cache.NewCaсhe()
+	orderCache := cache.NewCache(1000)
 
 	//заполняем кэш данными из БД за последнее время TimeLastRec
 	OrdersUIDs, err := orderDb.GetUIDs()
@@ -79,7 +78,7 @@ func main() {
 				log.Printf("Error create json: %v", err)
 				continue
 			}
-			cache.Add(orderUID, orderJson)
+			orderCache.Add(orderUID, orderJson)
 		}
 	}
 
@@ -89,18 +88,31 @@ func main() {
 	go func() {
 		defer wg.Done()
 		for mess := range chanAddOrder {
-			order, err := parser.ParseJsonOrder(mess)
+
+			log.Printf("ADD - Received message, size: %d bytes", mess.Len())
+
+			messCopy := bytes.NewBuffer(mess.Bytes())
+			order, err := parser.ParseJsonOrder(messCopy)
 			if err != nil {
-				log.Printf("Error parse Json: %v", err)
+				log.Printf("Validation failed: %v", err)
 				continue
 			}
 
-			cache.Add(order.OrderUID, mess)
+			log.Printf("ADD - Parsed order: %s", order.OrderUID)
+
+			cacheBuffer := bytes.NewBuffer(mess.Bytes())
+
+			log.Printf("ADD - Cache buffer size: %d bytes", cacheBuffer.Len())
+
+			orderCache.Add(order.OrderUID, cacheBuffer)
 			err = orderDb.AddDB(order)
 			if err != nil {
 				log.Printf("Error add data from DB: %v", err)
 				continue
 			}
+
+			log.Printf("ADD - Order %s successfully processed", order.OrderUID)
+
 		}
 	}()
 	//отправка запроса по UID
@@ -108,29 +120,45 @@ func main() {
 	go func() {
 		defer wg.Done()
 		for mess := range chanGetOrder {
-			buf, ok := cache.Get(mess)
+
+			log.Printf("GET - Processing request for UID: '%s'", mess)
+
+			buf, ok := orderCache.Get(mess)
 			if !ok {
+				log.Printf("Cache miss for UID: %s, querying DB", mess)
 				order, err := orderDb.GetOrderUID(mess)
 				if err != nil {
 					log.Printf("Error get data from DB: %v", err)
 					continue
 				}
 				if order != nil {
+
+					log.Printf("GET - Found order in DB: %s", mess)
+
 					jsonbuf, err := parser.CreateJsonOrder(order)
 					if err != nil {
 						log.Printf("Error create Json: %v", err)
 						continue
 					}
-					buf = *jsonbuf
-					cache.Add(string(mess), &buf)
+
+					log.Printf("GET - Created JSON, size: %d bytes", jsonbuf.Len())
+
+					cacheBuf := bytes.NewBuffer(jsonbuf.Bytes())
+					orderCache.Add(mess, cacheBuf)
+					buf = jsonbuf
+				} else {
+					log.Printf("GET - Order not found in DB: %s", mess)
+					continue
 				}
+			} else {
+				log.Printf("GET - Cache hit for UID: %s, buffer size: %d bytes", mess, buf.Len())
 			}
-			err = prod.SendOrderProducer(&buf, SendOrder)
+			err := prod.SendOrderProducer(buf, configYaml.KeySendOrder)
 			if err != nil {
 				log.Printf("Send error data in Kafka: %v", err)
 				continue
 			}
-
+			log.Printf("GET - Response sent for UID: %s", mess)
 		}
 	}()
 	log.Println("Service start. Press Ctrl+C for stop.")

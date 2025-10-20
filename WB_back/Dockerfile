@@ -8,6 +8,8 @@ RUN go mod download
 
 COPY . .
 
-RUN go build -v -o /app/bin/back-app ./main.go
+RUN go build -v -o main ./main.go
 
-CMD ["/app/bin/back-app"]
+EXPOSE 8080
+
+CMD ["./main"]

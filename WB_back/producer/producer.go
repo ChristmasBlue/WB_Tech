@@ -15,29 +15,29 @@ type Producer struct {
 
 func NewProducer(brokers []string, topic string) *Producer {
 	return &Producer{
-		writer: kafka.NewWriter(kafka.WriterConfig{
-			Brokers:  brokers,
-			Topic:    topic,
-			Balancer: &kafka.Hash{},
-		}),
+		writer: &kafka.Writer{
+			Addr:      kafka.TCP(brokers...),
+			Topic:     topic,
+			Balancer:  &kafka.Hash{},
+			BatchSize: 1,
+		},
 	}
 }
 
 func (p *Producer) SendOrderProducer(msg *bytes.Buffer, key string) error {
-	data := make([]byte, msg.Len())
-	copy(data, msg.Bytes())
 	err := p.writer.WriteMessages(context.Background(),
 		kafka.Message{
 			Key:   []byte(key),
-			Value: []byte(data),
+			Value: msg.Bytes(),
 			Time:  time.Now(),
 		},
 	)
 	if err != nil {
-		log.Printf("Error sending message: %v", err)
+		log.Printf("Error sending message: %v.\n", err)
 		return err
 	}
 	log.Println("Message sent")
+	log.Println("key: ", key, "message: ", msg.String())
 	return nil
 }
 
